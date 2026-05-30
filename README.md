@@ -23,9 +23,15 @@ If `brew install rsync` doesn't take precedence, add `/opt/homebrew/bin` (Apple 
 
 ## Setup
 
-1. Edit `backup.conf`:
+1. Copy the example config and fill it in:
+   ```bash
+   cp backup.conf.example backup.conf
+   ```
+   Then edit `backup.conf`:
    - Set `DEST_ROOT` to your backup drive mount point (e.g. `/Volumes/SanDisk`)
    - Add or remove entries from `SOURCES`
+
+   `backup.conf` is gitignored — your personal paths stay off GitHub.
 
 2. Make scripts executable:
    ```bash

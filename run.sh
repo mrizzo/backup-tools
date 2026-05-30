@@ -12,6 +12,14 @@
 # ─────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ ! -f "$SCRIPT_DIR/backup.conf" ]; then
+  echo "Error: backup.conf not found."
+  echo "  cp $SCRIPT_DIR/backup.conf.example $SCRIPT_DIR/backup.conf"
+  echo "  then edit backup.conf and set DEST_ROOT and SOURCES."
+  exit 1
+fi
+
 source "$SCRIPT_DIR/backup.conf"
 
 RED='\033[0;31m'
