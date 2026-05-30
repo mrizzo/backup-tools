@@ -81,6 +81,38 @@ def main() -> int:
             f"  e.g.  cd {rp.parent} && python3 dedup.py {args.path.name}"
         )
 
+    # ── Filesystem hard link check ────────────────────────────────────────────
+    # Hard links require filesystem support. exFAT and FAT32 don't support them.
+    # Test by attempting a real hard link on the target volume before doing any work.
+    _test_src = rp / HASHFILE_NAME
+    _test_dst = rp / '__dedup_test_link__.tmp'
+    try:
+        os.link(_test_src, _test_dst)
+        _test_dst.unlink()
+    except NotImplementedError:
+        sys.exit(
+            f"✗ This filesystem does not support hard links.\n"
+            f"  dedup requires APFS or HFS+. The drive at '{rp}' appears to be\n"
+            f"  exFAT or FAT32. Reformat as APFS to use dedup.\n"
+            f"  (Disk Utility → Erase → Format: APFS)"
+        )
+    except FileNotFoundError:
+        sys.exit(
+            f"error: {HASHFILE_NAME} not found in '{rp}'.\n"
+            f"Run paranoid.py on this directory first to build the hash database."
+        )
+    except OSError as e:
+        # errno 45 = ENOTSUP (macOS), errno 95 = EOPNOTSUPP (Linux) — unsupported operation
+        import errno as errno_mod
+        if e.errno in (errno_mod.ENOTSUP, errno_mod.EOPNOTSUPP, errno_mod.EPERM):
+            sys.exit(
+                f"✗ This filesystem does not support hard links.\n"
+                f"  dedup requires APFS or HFS+. The drive at '{rp}' appears to be\n"
+                f"  exFAT or FAT32. Reformat as APFS to use dedup.\n"
+                f"  (Disk Utility → Erase → Format: APFS)"
+            )
+        raise
+
     hashes = load_hashdict(rp)
 
     # Group files by deep hash, skip empty files and any without a deep hash
