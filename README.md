@@ -47,6 +47,11 @@ bash backup.sh
 # Verify only (run from parent of backup dir)
 cd /Volumes/SanDisk/Backup
 python3 /path/to/paranoid.py <hostname>
+
+# Deduplicate (run from parent of backup dir, after paranoid.py has run once)
+cd /Volumes/SanDisk/Backup
+python3 /path/to/dedup.py <hostname>           # dry run — shows what would change
+python3 /path/to/dedup.py --apply <hostname>   # replace duplicates with hard links
 ```
 
 ## How it works
