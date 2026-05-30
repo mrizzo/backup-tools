@@ -13,9 +13,31 @@ source "$SCRIPT_DIR/backup.conf"
 # ── Config ────────────────────────────────────────────────────
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 RESET='\033[0m'
+
+# ── rsync version check ───────────────────────────────────────
+# macOS ships 'openrsync' (Apple's BSD reimplementation) which is missing
+# flags we rely on (--backup-dir with absolute path, -h, --info).
+# GNU rsync 3.x is required. Install via: brew install rsync
+RSYNC_BIN="$(command -v rsync)"
+RSYNC_VERSION_LINE="$("$RSYNC_BIN" --version 2>&1 | head -1)"
+
+if echo "$RSYNC_VERSION_LINE" | grep -qi "openrsync"; then
+  echo -e "${RED}✗ openrsync detected — this is Apple's reimplementation and is missing required flags.${RESET}"
+  echo -e "  Install GNU rsync:  ${BOLD}brew install rsync${RESET}"
+  echo -e "  Then ensure it's first on your PATH, or set RSYNC_BIN in backup.conf."
+  exit 1
+fi
+
+RSYNC_MAJOR=$(echo "$RSYNC_VERSION_LINE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)
+if [ -n "$RSYNC_MAJOR" ] && [ "$RSYNC_MAJOR" -lt 3 ]; then
+  echo -e "${YELLOW}⚠ rsync $RSYNC_MAJOR.x detected — version 3.0 or newer is required.${RESET}"
+  echo -e "  Install GNU rsync:  ${BOLD}brew install rsync${RESET}"
+  exit 1
+fi
 
 # Optional CLI arg overrides DEST_ROOT from config
 if [ -n "$1" ]; then

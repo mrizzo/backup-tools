@@ -6,6 +6,21 @@ Lean backup + integrity verification for macOS.
 - **`paranoid.py`** — SHA-256 hashes every file and detects changes, corruption, moves, and duplicates
 - **`run.sh`** — runs both in sequence: backup first, then verify
 
+## Requirements
+
+**GNU rsync 3.x** is required. macOS ships `openrsync` (Apple's BSD reimplementation) which is missing flags this script depends on. Install the real thing:
+
+```bash
+brew install rsync
+```
+
+Confirm you have the right one:
+```bash
+rsync --version  # should say "rsync  version 3.x" not "openrsync"
+```
+
+If `brew install rsync` doesn't take precedence, add `/opt/homebrew/bin` (Apple Silicon) or `/usr/local/bin` (Intel) to the front of your `$PATH` in `~/.zshrc`.
+
 ## Setup
 
 1. Edit `backup.conf`:
