@@ -3,12 +3,17 @@
 #  run.sh — full pipeline: backup then verify integrity
 #
 #  USAGE:
-#    bash run.sh                     # uses DEST_ROOT from backup.conf
-#    bash run.sh /Volumes/MyDrive    # overrides DEST_ROOT
+#    bash run.sh                     # full hash verify (thorough, slower)
+#    bash run.sh --quick             # trivial verify: size+mtime only (fast)
+#    bash run.sh /Volumes/MyDrive    # override DEST_ROOT
+#    bash run.sh --quick /Volumes/MyDrive
 #
-#  SCHEDULE (daily at 9am):
+#  SCHEDULE:
 #    crontab -e
-#    0 9 * * * /bin/bash /path/to/run.sh >> $HOME/.backup.log 2>&1
+#    # Daily quick check (size + mtime, no rehash):
+#    0 9 * * *   /bin/bash /path/to/run.sh --quick >> $HOME/.backup.log 2>&1
+#    # Weekly full hash (Sunday 9am — catches silent corruption):
+#    0 9 * * 0   /bin/bash /path/to/run.sh         >> $HOME/.backup.log 2>&1
 # ─────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,10 +32,14 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-# Optional CLI arg overrides DEST_ROOT from config
-if [ -n "$1" ]; then
-  DEST_ROOT="$1"
-fi
+# ── Parse args ────────────────────────────────────────────────
+QUICK=0
+for arg in "$@"; do
+  case "$arg" in
+    --quick) QUICK=1 ;;
+    *)       DEST_ROOT="$arg" ;;
+  esac
+done
 
 # Validate DEST_ROOT is set
 if [ -z "$DEST_ROOT" ]; then
@@ -55,7 +64,13 @@ fi
 
 # ── Step 2: Verify with paranoid.py ──────────────────────────
 echo ""
-echo -e "${BOLD}${CYAN}── Verifying backup integrity...${RESET}"
+if [ $QUICK -eq 1 ]; then
+  echo -e "${BOLD}${CYAN}── Quick verify (size + mtime, no rehash)...${RESET}"
+  PARANOID_FLAGS="--serial --no --trivial"
+else
+  echo -e "${BOLD}${CYAN}── Full verify (SHA-256 hash of every file)...${RESET}"
+  PARANOID_FLAGS="--serial --no"
+fi
 echo "────────────────────────────────────────"
 
 # paranoid.py must be run from the parent of the target directory
@@ -64,15 +79,15 @@ BACKUP_NAME="$(basename "$BACKUP_DIR")"
 
 cd "$BACKUP_PARENT" || { echo -e "${RED}✗ Cannot cd to $BACKUP_PARENT${RESET}"; exit 1; }
 
-# --serial: better for external drives (I/O bound, not CPU bound)
-# --no: never auto-update the hash file; only report
-python3 "$SCRIPT_DIR/paranoid.py" --serial --no "$BACKUP_NAME"
+python3 "$SCRIPT_DIR/paranoid.py" $PARANOID_FLAGS "$BACKUP_NAME"
 PARANOID_EXIT=$?
 
+MODE_LABEL=$( [ $QUICK -eq 1 ] && echo "QUICK-VERIFY" || echo "FULL-VERIFY" )
+
 if [ $PARANOID_EXIT -eq 0 ]; then
-  echo "$(date): VERIFY OK" >> "$HOME/.backup.log"
+  echo "$(date): $MODE_LABEL OK" >> "$HOME/.backup.log"
 else
-  echo "$(date): VERIFY — changes detected (exit $PARANOID_EXIT)" >> "$HOME/.backup.log"
+  echo "$(date): $MODE_LABEL — changes detected (exit $PARANOID_EXIT)" >> "$HOME/.backup.log"
 fi
 
 exit $PARANOID_EXIT

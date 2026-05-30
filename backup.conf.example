@@ -19,3 +19,29 @@ SOURCES=(
   "$HOME/.gitconfig"
   "$HOME/.zsh_history"
 )
+
+# Files and directories to exclude from backup
+# Supports rsync wildcard patterns:
+#   *.dmg        — exclude by extension, anywhere in the tree
+#   node_modules/ — exclude a directory by name (trailing slash = dir only)
+#   .Trash/      — exclude a specific named directory
+EXCLUDES=(
+  # macOS clutter
+  '.DS_Store'
+  'Thumbs.db'
+  '.localized'
+  '.Trash/'
+
+  # Temp and build files
+  '*.tmp'
+  '*.pyc'
+  '__pycache__/'
+  'node_modules/'
+
+  # Large files you probably don't want on the backup drive
+  # Uncomment or add your own:
+  # '*.dmg'
+  # '*.iso'
+  # '*.vmdk'
+  # 'Virtual Machines.localized/'
+)
