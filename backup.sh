@@ -73,6 +73,16 @@ LOG="$HOME/.backup.log"
 
 mkdir -p "$DEST"
 
+# ── Interactive vs cron mode ──────────────────────────────────
+# When stdout is a terminal, show per-file progress.
+# When running unattended (cron), skip --progress to avoid
+# filling the log with noise and reduce overhead.
+if [ -t 1 ]; then
+  PROGRESS_FLAG="--progress"
+else
+  PROGRESS_FLAG="--info=progress2"  # one summary line, not per-file
+fi
+
 echo ""
 echo -e "${BOLD}${CYAN}Starting backup → $DEST${RESET}"
 echo -e "${CYAN}$(date)${RESET}"
@@ -90,7 +100,8 @@ done
 for SOURCE in "${SOURCES[@]}"; do
   if [ -e "$SOURCE" ]; then
     echo -e "\n${BOLD}Backing up:${RESET} $SOURCE"
-    rsync -ah --progress --delete \
+    rsync -ah $PROGRESS_FLAG --delete \
+      --partial \
       --backup \
       --backup-dir="$DEST_ROOT/Deleted/$(date +%Y-%m-%d)" \
       "${EXCLUDE_ARGS[@]}" \
