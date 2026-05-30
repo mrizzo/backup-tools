@@ -85,11 +85,13 @@ After backup, `run.sh` calls `paranoid.py --serial --no` on the backup destinati
 
 ## Schedule
 
-To run daily at 9am via cron:
+Recommended setup — quick check daily, full hash weekly:
 ```bash
 crontab -e
-# Add:
-0 9 * * * /bin/bash /path/to/run.sh >> $HOME/.backup.log 2>&1
+# Daily quick check (size + mtime, fast — misses silent corruption):
+0 9 * * *   /bin/bash /path/to/run.sh --quick >> $HOME/.backup.log 2>&1
+# Weekly full hash (Sunday 9am — catches silent corruption):
+0 9 * * 0   /bin/bash /path/to/run.sh         >> $HOME/.backup.log 2>&1
 ```
 
 View the log:
