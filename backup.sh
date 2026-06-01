@@ -68,7 +68,7 @@ if [ ! -d "$DEST_ROOT" ]; then
   exit 1
 fi
 
-DEST="$DEST_ROOT/Backup/$(hostname -s)"
+DEST="$DEST_ROOT/Backup/${BACKUP_NAME:-$(hostname -s)}"
 LOG="$HOME/.backup.log"
 
 mkdir -p "$DEST"
