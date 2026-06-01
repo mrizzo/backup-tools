@@ -8,6 +8,12 @@
 # Example: DEST_ROOT="/Volumes/SanDisk"
 DEST_ROOT=""
 
+# Name used for the backup folder: $DEST_ROOT/Backup/<BACKUP_NAME>
+# Useful when hostname returns "Mac" (macOS default) or changes after an update.
+# Leave blank to use the machine's hostname automatically.
+# Example: BACKUP_NAME="old-macbook"
+BACKUP_NAME=""
+
 # Sources to back up
 SOURCES=(
   "$HOME/Documents"
