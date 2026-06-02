@@ -44,6 +44,13 @@ DUPE_STR    = "👯 DUPES  : "
 def live_hash_file(_file_trivial):
     (_file, _trivial) = _file_trivial
 
+    try:
+      return _live_hash_file_inner(_file, _trivial)
+    except OSError as e:
+        print(f"\n  SKIP {_file}: {e}", file=sys.stderr)
+        return None
+
+def _live_hash_file_inner(_file, _trivial):
     with Path(_file).open('rb') as f:
         st1 = os.fstat(f.fileno())
 
@@ -94,7 +101,11 @@ def live_hash_files(_files, _trivial, _serial):
 
             # uncoupling the iterator instantiation from the loop forces worker failures to trigger inside the try block, preventing unhandled hangs
             result_iterator = pool.imap_unordered(live_hash_file, pool_tasks, chunksize=1)
-            for (hf_name, hf) in result_iterator:
+            for result in result_iterator:
+                if result is None:
+                    jobs_total -= 1  # keep progress bar accurate
+                    continue
+                (hf_name, hf) = result
                 jobs_done += 1
 
                 # print status
