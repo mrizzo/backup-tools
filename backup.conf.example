@@ -4,9 +4,15 @@
 # ──────────────────────────────────────────────────────────────
 
 # Destination drive mount point
-# Set this to wherever your backup drive is mounted.
+# Set this to wherever your backup drive is mounted (local or remote path).
 # Example: DEST_ROOT="/Volumes/SanDisk"
 DEST_ROOT=""
+
+# SSH remote host (optional)
+# If set, rsync over SSH to this host instead of a local mount.
+# DEST_ROOT is then the path on the remote machine.
+# Example: REMOTE_HOST="mrizzo@黒死神.local"
+REMOTE_HOST=""
 
 # Name used for the backup folder: $DEST_ROOT/Backup/<BACKUP_NAME>
 # Useful when hostname returns "Mac" (macOS default) or changes after an update.

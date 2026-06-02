@@ -77,16 +77,30 @@ if [ -z "$DEST_ROOT" ]; then
   exit 1
 fi
 
-# Check destination is accessible
-if [ ! -d "$DEST_ROOT" ]; then
-  echo -e "${RED}✗ Destination '$DEST_ROOT' is not accessible. Is the drive mounted?${RESET}"
-  exit 1
+DEST_NAME="${BACKUP_NAME:-$(hostname -s)}"
+DEST_PATH="$DEST_ROOT/Backup/$DEST_NAME"
+
+# ── Remote vs local destination ───────────────────────────────
+if [ -n "$REMOTE_HOST" ]; then
+  # SSH mode: check reachability, create dest dir, build rsync target
+  if ! ssh "$REMOTE_HOST" "test -d '$DEST_ROOT'" 2>/dev/null; then
+    echo -e "${RED}✗ Remote $REMOTE_HOST:$DEST_ROOT is not accessible.${RESET}"
+    exit 1
+  fi
+  ssh "$REMOTE_HOST" "mkdir -p '$DEST_PATH'"
+  RSYNC_DEST="$REMOTE_HOST:$DEST_PATH/"
+  BACKUP_DIR_ARG="--backup-dir=$DEST_ROOT/Deleted/$(date +%Y-%m-%d)"
+else
+  if [ ! -d "$DEST_ROOT" ]; then
+    echo -e "${RED}✗ Destination '$DEST_ROOT' is not accessible. Is the drive mounted?${RESET}"
+    exit 1
+  fi
+  mkdir -p "$DEST_PATH"
+  RSYNC_DEST="$DEST_PATH/"
+  BACKUP_DIR_ARG="--backup-dir=$DEST_ROOT/Deleted/$(date +%Y-%m-%d)"
 fi
 
-DEST="$DEST_ROOT/Backup/${BACKUP_NAME:-$(hostname -s)}"
 LOG="$HOME/.backup.log"
-
-mkdir -p "$DEST"
 
 # ── Interactive vs cron mode ──────────────────────────────────
 # When stdout is a terminal, show per-file progress.
@@ -99,7 +113,7 @@ else
 fi
 
 echo ""
-echo -e "${BOLD}${CYAN}Starting backup → $DEST${RESET}"
+echo -e "${BOLD}${CYAN}Starting backup → ${REMOTE_HOST:+$REMOTE_HOST:}$DEST_PATH${RESET}"
 echo -e "${CYAN}$(date)${RESET}"
 echo "────────────────────────────────────────"
 
@@ -122,9 +136,9 @@ for SOURCE in "${SOURCES[@]}"; do
     "$RSYNC_BIN" -ah $PROGRESS_FLAG --delete \
       --partial \
       --backup \
-      --backup-dir="$DEST_ROOT/Deleted/$(date +%Y-%m-%d)" \
+      "$BACKUP_DIR_ARG" \
       "${EXCLUDE_ARGS[@]}" \
-      "$SOURCE" "$DEST/"
+      "$SOURCE" "$RSYNC_DEST"
     DIR_END=$(date +%s)
     DIR_ELAPSED=$((DIR_END - DIR_START))
     DIR_M=$((DIR_ELAPSED / 60))
@@ -155,8 +169,12 @@ if [ ${#SKIPPED[@]} -gt 0 ]; then
 fi
 echo "────────────────────────────────────────"
 echo -e "${GREEN}${BOLD}✓ Backup complete in ${MINUTES}m ${SECONDS_REM}s${RESET}"
-echo -e "  Saved to: $DEST"
+echo -e "  Saved to: ${REMOTE_HOST:+$REMOTE_HOST:}$DEST_PATH"
 echo "$(date): SUCCESS (${MINUTES}m ${SECONDS_REM}s)" >> "$LOG"
 
-du -sh "$DEST" 2>/dev/null | awk '{print "  Total size: "$1}'
+if [ -n "$REMOTE_HOST" ]; then
+  ssh "$REMOTE_HOST" "du -sh '$DEST_PATH'" 2>/dev/null | awk '{print "  Total size: "$1}'
+else
+  du -sh "$DEST_PATH" 2>/dev/null | awk '{print "  Total size: "$1}'
+fi
 echo ""
