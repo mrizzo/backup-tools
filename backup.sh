@@ -97,7 +97,7 @@ for pattern in "${EXCLUDES[@]}"; do
 done
 
 # ── Run rsync for each source ─────────────────────────────────
-declare -A DIR_TIMES
+PROFILE_LINES=()
 SKIPPED=()
 
 for SOURCE in "${SOURCES[@]}"; do
@@ -112,7 +112,10 @@ for SOURCE in "${SOURCES[@]}"; do
       "$SOURCE" "$DEST/"
     DIR_END=$(date +%s)
     DIR_ELAPSED=$((DIR_END - DIR_START))
-    DIR_TIMES["$SOURCE"]=$DIR_ELAPSED
+    DIR_M=$((DIR_ELAPSED / 60))
+    DIR_S=$((DIR_ELAPSED % 60))
+    if [ $DIR_M -gt 0 ]; then DIR_LABEL="${DIR_M}m ${DIR_S}s"; else DIR_LABEL="${DIR_S}s"; fi
+    PROFILE_LINES+=("$(printf "  %-40s %s" "$(basename "$SOURCE")" "$DIR_LABEL")")
     echo -e "  ${CYAN}↳ $(basename "$SOURCE") done in ${DIR_ELAPSED}s${RESET}"
   else
     echo -e "${RED}  Skipping $SOURCE (not found)${RESET}"
@@ -129,18 +132,8 @@ SECONDS_REM=$((ELAPSED % 60))
 echo ""
 echo "────────────────────────────────────────"
 echo -e "${BOLD}Profile:${RESET}"
-for SOURCE in "${SOURCES[@]}"; do
-  if [ -n "${DIR_TIMES[$SOURCE]+_}" ]; then
-    T=${DIR_TIMES[$SOURCE]}
-    M=$((T / 60))
-    S=$((T % 60))
-    if [ $M -gt 0 ]; then
-      LABEL="${M}m ${S}s"
-    else
-      LABEL="${S}s"
-    fi
-    printf "  %-40s %s\n" "$(basename "$SOURCE")" "$LABEL"
-  fi
+for line in "${PROFILE_LINES[@]}"; do
+  echo "$line"
 done
 if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo -e "  ${RED}Skipped: ${SKIPPED[*]}${RESET}"
