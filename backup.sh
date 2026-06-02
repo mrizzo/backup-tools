@@ -108,6 +108,7 @@ for SOURCE in "${SOURCES[@]}"; do
       --partial \
       --backup \
       --backup-dir="$DEST_ROOT/Deleted/$(date +%Y-%m-%d)" \
+      --iconv=UTF-8-MAC,UTF-8 \
       "${EXCLUDE_ARGS[@]}" \
       "$SOURCE" "$DEST/"
     DIR_END=$(date +%s)
