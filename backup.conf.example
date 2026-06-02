@@ -44,6 +44,9 @@ EXCLUDES=(
   '.localized'
   '.Trash/'
 
+  # SSH agent sockets — runtime files recreated on login, not worth backing up
+  '.ssh/agent/'
+
   # Temp and build files
   '*.tmp'
   '*.pyc'
