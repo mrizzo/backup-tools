@@ -108,19 +108,19 @@ def live_hash_files(_files, _trivial, _serial):
                 (hf_name, hf) = result
                 jobs_done += 1
 
-                # print status
-                BAR_PENDING_CHAR = '░'
-                BAR_DONE_CHAR = '▓'
-                BAR_NUM = 20
-                decile_done = int(BAR_NUM * jobs_done / jobs_total)
-                progress_bar = f"[{BAR_DONE_CHAR * decile_done}{BAR_PENDING_CHAR * (BAR_NUM - decile_done)}]"
+                # print status every 10 files — flush=True per-file is a syscall
+                # bottleneck when workers are returning results faster than the
+                # terminal can consume them
+                if jobs_done % 10 == 0 or jobs_done == jobs_total:
+                    BAR_PENDING_CHAR = '░'
+                    BAR_DONE_CHAR = '▓'
+                    BAR_NUM = 20
+                    decile_done = int(BAR_NUM * jobs_done / jobs_total)
+                    progress_bar = f"[{BAR_DONE_CHAR * decile_done}{BAR_PENDING_CHAR * (BAR_NUM - decile_done)}]"
 
-                status = f"{progress_bar} ({jobs_done}/{jobs_total}): {hf_name}"
-                status = status[:STATUS_MAX_WIDTH] # truncate the line
-
-                if hf_name.isascii():
-                    # unicode filenames mess up the status display
-                    print(f"{CLEAR_STATUS_LINE}{status}", end="", flush=True) # clear the whole line, no newline
+                    status = f"{progress_bar} ({jobs_done}/{jobs_total})"
+                    status = status[:STATUS_MAX_WIDTH]
+                    print(f"{CLEAR_STATUS_LINE}{status}", end="", flush=True)
 
                 hashes_live[hf_name] = hf # HashedFile
 
