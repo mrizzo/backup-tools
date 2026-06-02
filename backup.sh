@@ -97,17 +97,26 @@ for pattern in "${EXCLUDES[@]}"; do
 done
 
 # ── Run rsync for each source ─────────────────────────────────
+declare -A DIR_TIMES
+SKIPPED=()
+
 for SOURCE in "${SOURCES[@]}"; do
   if [ -e "$SOURCE" ]; then
     echo -e "\n${BOLD}Backing up:${RESET} $SOURCE"
+    DIR_START=$(date +%s)
     rsync -ah $PROGRESS_FLAG --delete \
       --partial \
       --backup \
       --backup-dir="$DEST_ROOT/Deleted/$(date +%Y-%m-%d)" \
       "${EXCLUDE_ARGS[@]}" \
       "$SOURCE" "$DEST/"
+    DIR_END=$(date +%s)
+    DIR_ELAPSED=$((DIR_END - DIR_START))
+    DIR_TIMES["$SOURCE"]=$DIR_ELAPSED
+    echo -e "  ${CYAN}↳ $(basename "$SOURCE") done in ${DIR_ELAPSED}s${RESET}"
   else
     echo -e "${RED}  Skipping $SOURCE (not found)${RESET}"
+    SKIPPED+=("$SOURCE")
   fi
 done
 
@@ -118,6 +127,24 @@ MINUTES=$((ELAPSED / 60))
 SECONDS_REM=$((ELAPSED % 60))
 
 echo ""
+echo "────────────────────────────────────────"
+echo -e "${BOLD}Profile:${RESET}"
+for SOURCE in "${SOURCES[@]}"; do
+  if [ -n "${DIR_TIMES[$SOURCE]+_}" ]; then
+    T=${DIR_TIMES[$SOURCE]}
+    M=$((T / 60))
+    S=$((T % 60))
+    if [ $M -gt 0 ]; then
+      LABEL="${M}m ${S}s"
+    else
+      LABEL="${S}s"
+    fi
+    printf "  %-40s %s\n" "$(basename "$SOURCE")" "$LABEL"
+  fi
+done
+if [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo -e "  ${RED}Skipped: ${SKIPPED[*]}${RESET}"
+fi
 echo "────────────────────────────────────────"
 echo -e "${GREEN}${BOLD}✓ Backup complete in ${MINUTES}m ${SECONDS_REM}s${RESET}"
 echo -e "  Saved to: $DEST"
