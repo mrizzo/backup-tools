@@ -50,4 +50,12 @@ EXCLUDES=(
   # '*.iso'
   # '*.vmdk'
   # 'Virtual Machines.localized/'
+
+  # Photos.app — exclude internal databases/caches that churn constantly
+  'Photos Library.photoslibrary/database/'
+  'Photos Library.photoslibrary/internal/'
+  'Photos Library.photoslibrary/private/'
+  'Photos Library.photoslibrary/resources/'
+  'Photos Library.photoslibrary/scopes/'
+  'Photos Library.photoslibrary/iPod Photo Cache/'
 )
