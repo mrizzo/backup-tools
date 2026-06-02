@@ -31,12 +31,27 @@ RESET='\033[0m'
 # flags we rely on (--backup-dir with absolute path, -h, --info).
 # GNU rsync 3.x is required. Install via: brew install rsync
 RSYNC_BIN="$(command -v rsync)"
+
+# If PATH doesn't include Homebrew (e.g. cron), fall back to known locations
+if [ -z "$RSYNC_BIN" ] || "$RSYNC_BIN" --version 2>&1 | grep -qi "openrsync"; then
+  for _try in /opt/homebrew/bin/rsync /usr/local/bin/rsync; do
+    if [ -x "$_try" ] && ! "$_try" --version 2>&1 | grep -qi "openrsync"; then
+      RSYNC_BIN="$_try"
+      break
+    fi
+  done
+fi
+
+if [ -z "$RSYNC_BIN" ]; then
+  echo -e "${RED}✗ rsync not found. Install GNU rsync:  ${BOLD}brew install rsync${RESET}"
+  exit 1
+fi
+
 RSYNC_VERSION_LINE="$("$RSYNC_BIN" --version 2>&1 | head -1)"
 
 if echo "$RSYNC_VERSION_LINE" | grep -qi "openrsync"; then
   echo -e "${RED}✗ openrsync detected — this is Apple's reimplementation and is missing required flags.${RESET}"
   echo -e "  Install GNU rsync:  ${BOLD}brew install rsync${RESET}"
-  echo -e "  Then ensure it's first on your PATH, or set RSYNC_BIN in backup.conf."
   exit 1
 fi
 
@@ -104,7 +119,7 @@ for SOURCE in "${SOURCES[@]}"; do
   if [ -e "$SOURCE" ]; then
     echo -e "\n${BOLD}Backing up:${RESET} $SOURCE"
     DIR_START=$(date +%s)
-    rsync -ah $PROGRESS_FLAG --delete \
+    "$RSYNC_BIN" -ah $PROGRESS_FLAG --delete \
       --partial \
       --backup \
       --backup-dir="$DEST_ROOT/Deleted/$(date +%Y-%m-%d)" \
