@@ -127,8 +127,12 @@ def live_hash_files(_files, _trivial, _serial):
 
     # clear out last printed line
     print(CLEAR_STATUS_LINE, end='', flush=True)
-    if not _trivial and hashes_live:
-        print(f"Hashed {len(hashes_live):,} files ({total_file_size/2**30:.1f} GiB) @ {(total_file_size/(time.perf_counter()-start_wall_time))/2**20:,.1f} MiB/s")
+    elapsed_hash = time.perf_counter() - start_wall_time
+    if hashes_live:
+        if _trivial:
+            print(f"Scanned  {len(hashes_live):,} files in {elapsed_hash:.1f}s")
+        else:
+            print(f"Hashed   {len(hashes_live):,} files ({total_file_size/2**30:.1f} GiB) in {elapsed_hash:.1f}s @ {(total_file_size/elapsed_hash)/2**20:,.1f} MiB/s")
 
     return hashes_live
 
@@ -319,6 +323,8 @@ def work(_searchpath, _args):
         save_hashdict(_searchpath, hashes_live)
         return 0 # no changes
 
+    verify_start = time.perf_counter()
+
     fileset_updated = set()
     fileset_corrupt = set()
     for f in set(hashes_live) & set(hashes_saved):
@@ -356,6 +362,8 @@ def work(_searchpath, _args):
             # don't need these anymore
             fileset_deleted.remove(f_mis)
             fileset_new.remove(f_new)
+
+    print(f"Verified {len(hashes_live):,} files in {time.perf_counter() - verify_start:.3f}s")
 
     OFFSET_TAB = ' '*(len(DUPE_STR)+1)
 
