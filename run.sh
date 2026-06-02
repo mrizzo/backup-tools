@@ -3,9 +3,10 @@
 #  run.sh — full pipeline: backup then verify integrity
 #
 #  USAGE:
-#    bash run.sh                     # full hash verify (thorough, slower)
-#    bash run.sh --quick             # trivial verify: size+mtime only (fast)
-#    bash run.sh /Volumes/MyDrive    # override DEST_ROOT
+#    bash run.sh                          # full hash verify (thorough, slower)
+#    bash run.sh --quick                  # trivial verify: size+mtime only (fast)
+#    bash run.sh --parallel               # use parallel hashing (faster over SMB/fast network)
+#    bash run.sh /Volumes/MyDrive         # override DEST_ROOT
 #    bash run.sh --quick /Volumes/MyDrive
 #
 #  SCHEDULE:
@@ -34,10 +35,12 @@ RESET='\033[0m'
 
 # ── Parse args ────────────────────────────────────────────────
 QUICK=0
+SERIAL=1
 for arg in "$@"; do
   case "$arg" in
-    --quick) QUICK=1 ;;
-    *)       DEST_ROOT="$arg" ;;
+    --quick)    QUICK=1 ;;
+    --parallel) SERIAL=0 ;;
+    *)          DEST_ROOT="$arg" ;;
   esac
 done
 
@@ -64,12 +67,13 @@ fi
 
 # ── Step 2: Verify with paranoid.py ──────────────────────────
 echo ""
+SERIAL_FLAG=$( [ $SERIAL -eq 1 ] && echo "--serial" || echo "" )
 if [ $QUICK -eq 1 ]; then
   echo -e "${BOLD}${CYAN}── Quick verify (size + mtime, no rehash)...${RESET}"
-  PARANOID_FLAGS="--serial --no --trivial"
+  PARANOID_FLAGS="$SERIAL_FLAG --no --trivial"
 else
   echo -e "${BOLD}${CYAN}── Full verify (SHA-256 hash of every file)...${RESET}"
-  PARANOID_FLAGS="--serial --no"
+  PARANOID_FLAGS="$SERIAL_FLAG --no"
 fi
 echo "────────────────────────────────────────"
 
