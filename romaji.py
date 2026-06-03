@@ -70,5 +70,5 @@ for path in paths:
     if not dry:
         path.rename(new_path)
 
-if dry and paths:
+if dry:
     print("\nDry run -- pass --apply to rename.")
