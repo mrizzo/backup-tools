@@ -77,6 +77,16 @@ if [ -n "$REMOTE_HOST" ]; then
   echo -e "  ${GREEN}✓ $REMOTE_HOST:$DEST_ROOT accessible${RESET}"
 
   FREE_KB=$(ssh "$REMOTE_HOST" "df -k '$DEST_ROOT' 2>/dev/null | awk 'NR==2{print \$4}'")
+
+  # python3 on remote (needed to run paranoid.py over SSH)
+  REMOTE_PY_VER=$(ssh "$REMOTE_HOST" "python3 -c 'import sys; print(sys.version_info.minor)' 2>/dev/null")
+  if [ -z "$REMOTE_PY_VER" ] || [ "$REMOTE_PY_VER" -lt 9 ]; then
+    echo -e "  ${YELLOW}⚠ python3.9+ not found on $REMOTE_HOST — integrity check will be skipped${RESET}"
+    REMOTE_HAS_PYTHON=0
+  else
+    echo -e "  ${GREEN}✓ python3 on $REMOTE_HOST${RESET}"
+    REMOTE_HAS_PYTHON=1
+  fi
 else
   if [ ! -d "$DEST_ROOT" ]; then
     echo -e "  ${RED}✗ $DEST_ROOT not found — is the drive mounted?${RESET}"
@@ -136,18 +146,24 @@ BACKUP_PARENT="$(dirname "$BACKUP_DIR")"
 BACKUP_NAME="$(basename "$BACKUP_DIR")"
 
 if [ -n "$REMOTE_HOST" ] && [ ! -d "$BACKUP_PARENT" ]; then
-  echo -e "${YELLOW}⚠ Skipping integrity check — $BACKUP_PARENT is not mounted locally.${RESET}"
-  echo -e "  To verify, SSH in and run:"
-  echo -e "  ${BOLD}ssh $REMOTE_HOST${RESET}"
-  echo -e "  ${BOLD}cd $BACKUP_PARENT && python3 ~/paranoid.py $BACKUP_NAME${RESET}"
-  echo "$(date): BACKUP OK (verify skipped — remote not mounted)" >> "$HOME/.backup.log"
-  exit 0
+  if [ "${REMOTE_HAS_PYTHON:-0}" -eq 0 ]; then
+    echo -e "${YELLOW}⚠ Skipping integrity check — python3.9+ not available on $REMOTE_HOST${RESET}"
+    echo "$(date): BACKUP OK (verify skipped — no python3 on remote)" >> "$HOME/.backup.log"
+    exit 0
+  fi
+  # Remote backup with no local mount — push paranoid.py and run it over SSH
+  echo -e "${BOLD}${CYAN}── Running paranoid.py on $REMOTE_HOST...${RESET}"
+  REMOTE_PARANOID="/tmp/paranoid_run.py"
+  scp -q "$SCRIPT_DIR/paranoid.py" "$REMOTE_HOST:$REMOTE_PARANOID" 2>/dev/null \
+    || { echo -e "${RED}✗ Could not copy paranoid.py to $REMOTE_HOST${RESET}"; exit 1; }
+  ssh "$REMOTE_HOST" "cd '$BACKUP_PARENT' && python3 '$REMOTE_PARANOID' $PARANOID_FLAGS '$BACKUP_NAME'"
+  PARANOID_EXIT=$?
+  ssh "$REMOTE_HOST" "rm -f '$REMOTE_PARANOID'" 2>/dev/null
+else
+  cd "$BACKUP_PARENT" || { echo -e "${RED}✗ Cannot cd to $BACKUP_PARENT${RESET}"; exit 1; }
+  python3 "$SCRIPT_DIR/paranoid.py" $PARANOID_FLAGS "$BACKUP_NAME"
+  PARANOID_EXIT=$?
 fi
-
-cd "$BACKUP_PARENT" || { echo -e "${RED}✗ Cannot cd to $BACKUP_PARENT${RESET}"; exit 1; }
-
-python3 "$SCRIPT_DIR/paranoid.py" $PARANOID_FLAGS "$BACKUP_NAME"
-PARANOID_EXIT=$?
 
 MODE_LABEL=$( [ $QUICK -eq 1 ] && echo "QUICK-VERIFY" || echo "FULL-VERIFY" )
 
