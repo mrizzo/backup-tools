@@ -113,7 +113,7 @@ fi
 # detects corrupt file (hash changed, mtime unchanged)
 setup_dir "t_corrupt"
 cd "$SETUP_DIR"
-saved_mtime=$(python3 -c "import json; d=json.load(open('target/__paranoid__.json')); print(list(d.values())[0]['st_mtime'])")
+saved_mtime=$(python3 -c "import json; d={k:v for k,v in json.load(open('target/__paranoid__.json')).items() if isinstance(v,dict)}; print(list(d.values())[0]['st_mtime'])")
 printf "corrupted" > "$SETUP_DIR/target/base.txt"
 touch -t "$(date -r "$saved_mtime" +%Y%m%d%H%M.%S)" "$SETUP_DIR/target/base.txt"
 out=$(paranoid --no target 2>&1)

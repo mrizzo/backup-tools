@@ -162,11 +162,21 @@ if platform.system() == 'Darwin':
 def hashfile_path(_searchpath):
     return _searchpath / HASHFILE_NAME
 
+SUPERHASH_KEY = '\x00superhash\x00' # null bytes are illegal in all filesystem paths — guaranteed no collision
+
+def _compute_superhash(_hashed_files: dict[str, HashedFile]) -> str:
+    h = hashlib.sha256()
+    for k in sorted(_hashed_files):
+        hf = _hashed_files[k]
+        h.update(f"{k}\x00{hf.st_size}\x00{hf.st_mtime}\x00{hf.hash_deep}\x00{hf.hash_time}\x00".encode())
+    return h.hexdigest()
+
 def save_hashdict(_searchpath, _hashed_files: dict[str, HashedFile]):
     if any(hf.hash_deep is None for hf in _hashed_files.values()):
         raise RuntimeError("attempted to save hash dict with empty deep hashes") # we never save empty deep hashes
 
     dict_j = {k: asdict(v) for k, v in _hashed_files.items()} # create dict from HashedFile's
+    dict_j[SUPERHASH_KEY] = _compute_superhash(_hashed_files)
 
     hf_path  = hashfile_path(_searchpath)
     tmp_path = hf_path.with_suffix('.tmp')
@@ -202,12 +212,20 @@ def load_hashdict(_searchpath):
     with hf_path.open('r') as f:
         try:
             j = json.load(f)
-            return {k: HashedFile(**v) for k, v in j.items()} # ** unpacking 'splat' operator unpacks a dict into keyword arguments
         except (TypeError, json.JSONDecodeError):
             if (input(f"WARNING: '{hf_path}' is corrupt and will be overwritten. Proceed? (y): ") != 'y'):
                 raise SystemExit("aborting")
-
             return None
+
+    saved_superhash = j.pop(SUPERHASH_KEY, None)
+    hashed_files = {k: HashedFile(**v) for k, v in j.items()}
+
+    if saved_superhash is not None:
+        computed = _compute_superhash(hashed_files)
+        if computed != saved_superhash:
+            raise SystemExit(f"ERROR: '{hf_path}' failed integrity check — the hash database itself may be corrupt. Delete it and re-run to rebuild.")
+
+    return hashed_files
 
 def ignore_file(_f_test, _dir_ignore_patterns, _args):
     if _f_test.name in _SPECIAL_FILES:
