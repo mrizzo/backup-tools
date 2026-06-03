@@ -19,14 +19,15 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ ! -f "$SCRIPT_DIR/backup.conf" ]; then
-  echo "Error: backup.conf not found."
-  echo "  cp $SCRIPT_DIR/backup.conf.example $SCRIPT_DIR/backup.conf"
-  echo "  then edit backup.conf and set DEST_ROOT and SOURCES."
+if [ ! -f "$SCRIPT_DIR/backup.conf.local" ]; then
+  echo "Error: backup.conf.local not found."
+  echo "  cp $SCRIPT_DIR/backup.conf.local.example $SCRIPT_DIR/backup.conf.local"
+  echo "  then edit backup.conf.local and set DEST_ROOT and SOURCES."
   exit 1
 fi
 
 source "$SCRIPT_DIR/backup.conf"
+source "$SCRIPT_DIR/backup.conf.local"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'

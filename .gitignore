@@ -1,8 +1,8 @@
 # paranoid.py hash files — these live on the backup drive, not in the repo
 __paranoid__.json
 
-# Personal config — copy backup.conf.example → backup.conf and fill it in
-backup.conf
+# Machine-specific config — copy backup.conf.local.example → backup.conf.local
+backup.conf.local
 
 # macOS
 .DS_Store
