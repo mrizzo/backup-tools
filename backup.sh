@@ -81,6 +81,8 @@ DEST_NAME="${BACKUP_NAME:-$(hostname -s)}"
 DEST_PATH="$DEST_ROOT/Backup/$DEST_NAME"
 
 # ── Remote vs local destination ───────────────────────────────
+BACKUP_DIR_ARG="--backup-dir=$DEST_ROOT/Deleted/$(date +%Y-%m-%d)"
+
 if [ -n "$REMOTE_HOST" ]; then
   # SSH mode: check reachability, create dest dir, build rsync target
   if ! ssh "$REMOTE_HOST" "test -d '$DEST_ROOT'" 2>/dev/null; then
@@ -89,7 +91,6 @@ if [ -n "$REMOTE_HOST" ]; then
   fi
   ssh "$REMOTE_HOST" "mkdir -p '$DEST_PATH'"
   RSYNC_DEST="$REMOTE_HOST:$DEST_PATH/"
-  BACKUP_DIR_ARG="--backup-dir=$DEST_ROOT/Deleted/$(date +%Y-%m-%d)"
 else
   if [ ! -d "$DEST_ROOT" ]; then
     echo -e "${RED}✗ Destination '$DEST_ROOT' is not accessible. Is the drive mounted?${RESET}"
@@ -97,7 +98,6 @@ else
   fi
   mkdir -p "$DEST_PATH"
   RSYNC_DEST="$DEST_PATH/"
-  BACKUP_DIR_ARG="--backup-dir=$DEST_ROOT/Deleted/$(date +%Y-%m-%d)"
 fi
 
 LOG="$HOME/.backup.log"

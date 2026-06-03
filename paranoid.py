@@ -99,6 +99,10 @@ def live_hash_files(_files, _trivial, _serial):
             jobs_total = len(pool_tasks)
             jobs_done  = 0
 
+            BAR_PENDING_CHAR = '░'
+            BAR_DONE_CHAR    = '▓'
+            BAR_NUM          = 20
+
             # uncoupling the iterator instantiation from the loop forces worker failures to trigger inside the try block, preventing unhandled hangs
             result_iterator = pool.imap_unordered(live_hash_file, pool_tasks, chunksize=1)
             for result in result_iterator:
@@ -112,9 +116,6 @@ def live_hash_files(_files, _trivial, _serial):
                 # bottleneck when workers are returning results faster than the
                 # terminal can consume them
                 if jobs_done % 10 == 0 or jobs_done == jobs_total:
-                    BAR_PENDING_CHAR = '░'
-                    BAR_DONE_CHAR = '▓'
-                    BAR_NUM = 20
                     decile_done = int(BAR_NUM * jobs_done / jobs_total)
                     progress_bar = f"[{BAR_DONE_CHAR * decile_done}{BAR_PENDING_CHAR * (BAR_NUM - decile_done)}]"
 
@@ -152,6 +153,12 @@ def live_hash_files(_files, _trivial, _serial):
 IGNOREFILE_NAME = '.paranoid_ignore'
 HASHFILE_NAME   = '__paranoid__.json'
 
+_SPECIAL_FILES = frozenset({HASHFILE_NAME})
+_SPECIAL_DIRS  = frozenset()
+if platform.system() == 'Darwin':
+    _SPECIAL_FILES |= frozenset({'.DS_Store', 'Thumbs.db', '.localized'})
+    _SPECIAL_DIRS  |= frozenset({'.fseventsd', '.Spotlight-V100', '.TemporaryItems', '.Trashes'})
+
 def hashfile_path(_searchpath):
     return _searchpath / HASHFILE_NAME
 
@@ -188,35 +195,26 @@ def save_hashdict(_searchpath, _hashed_files: dict[str, HashedFile]):
     print(f"Saved {hf_path}")
 
 def load_hashdict(_searchpath):
-    if not hashfile_path(_searchpath).is_file(): # does the dictionary file exist already?
+    hf_path = hashfile_path(_searchpath)
+    if not hf_path.is_file():
         return None
 
-    with hashfile_path(_searchpath).open('r') as f:
+    with hf_path.open('r') as f:
         try:
             j = json.load(f)
             return {k: HashedFile(**v) for k, v in j.items()} # ** unpacking 'splat' operator unpacks a dict into keyword arguments
         except (TypeError, json.JSONDecodeError):
-            # in case it can't be parsed
-            if (input(f"WARNING: '{hashfile_path(_searchpath)}' is corrupt and will be overwritten. Proceed? (y): ") != 'y'):
+            if (input(f"WARNING: '{hf_path}' is corrupt and will be overwritten. Proceed? (y): ") != 'y'):
                 raise SystemExit("aborting")
 
             return None
 
 def ignore_file(_f_test, _dir_ignore_patterns, _args):
-    SPECIAL_FILES = frozenset({HASHFILE_NAME})
-    SPECIAL_DIRS  = frozenset()
-
-    if platform.system() == 'Darwin': # macOS
-        SPECIAL_FILES |= frozenset({'.DS_Store', 'Thumbs.db', '.localized'})
-        SPECIAL_DIRS  |= frozenset({'.fseventsd', '.Spotlight-V100', '.TemporaryItems', '.Trashes'})
-
-    # filter special files
-    if _f_test.name in SPECIAL_FILES:
+    if _f_test.name in _SPECIAL_FILES:
         return True
 
-    # filter special directory parents
     for p in _f_test.parents:
-        if p.name in SPECIAL_DIRS:
+        if p.name in _SPECIAL_DIRS:
             return True
 
     for _f_test_ancestor in _f_test.parents:
@@ -429,43 +427,25 @@ def work(_searchpath, _args):
                     for f in h_files[1:]: # all dupe files
                         print(f"{OFFSET_TAB}↳ {f}")
 
-    summary_str = ''
-    # corrupt
+    summary_lines = []
     if fileset_corrupt or _args.verbose:
-        if summary_str: summary_str += "\n"
-        summary_str += f"{CORRUPT_STR}{len(fileset_corrupt)}{' (*)' if _args.trivial else ''}"
-    # updated
+        summary_lines.append(f"{CORRUPT_STR}{len(fileset_corrupt)}{' (*)' if _args.trivial else ''}")
     if fileset_updated or _args.verbose:
-        if summary_str: summary_str += "\n"
-        summary_str += f"{UPDATED_STR}{len(fileset_updated)}{' (*)' if _args.trivial else ''}"
-    # moved
+        summary_lines.append(f"{UPDATED_STR}{len(fileset_updated)}{' (*)' if _args.trivial else ''}")
     if fileset_moved or _args.verbose:
-        if summary_str: summary_str += "\n"
-        summary_str += f"{MOVED_STR}{len(fileset_moved)}"
-    # new
+        summary_lines.append(f"{MOVED_STR}{len(fileset_moved)}")
     if fileset_new or _args.verbose:
-        if summary_str: summary_str += "\n"
-        summary_str += f"{NEW_STR}{len(fileset_new)}"
-    # deleted
+        summary_lines.append(f"{NEW_STR}{len(fileset_new)}")
     if fileset_deleted or _args.verbose:
-        if summary_str:
-            summary_str += "\n"
-        summary_str += f"{DELETED_STR}{len(fileset_deleted)}"
-    # dupes
+        summary_lines.append(f"{DELETED_STR}{len(fileset_deleted)}")
     if _args.verbose:
-        if summary_str:
-            summary_str += "\n"
-        if _args.trivial:
-            summary_str += f"{DUPE_STR}N/A (*)"
-        else:
-            summary_str += f"{DUPE_STR}{num_dupes}"
+        summary_lines.append(f"{DUPE_STR}{'N/A (*)' if _args.trivial else num_dupes}")
 
-    # summary is shown in verbose output, OR if there are new, deleted, updated, moved files
-    if summary_str:
+    if summary_lines:
         print('')
         print('summary of changes')
         print('---')
-        print(summary_str)
+        print("\n".join(summary_lines))
         if _args.trivial:
             print()
             print("(*) using trivial file signature (size + modification time); run without --trivial for deep hash")
