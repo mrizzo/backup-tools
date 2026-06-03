@@ -2,24 +2,25 @@
 
 Lean backup + integrity verification for macOS.
 
-- **`backup.sh`** — rsyncs configured sources to an external drive
+- **`backup.sh`** — rsyncs configured sources to a local drive or remote host over SSH
 - **`paranoid.py`** — SHA-256 hashes every file and detects changes, corruption, moves, and duplicates
-- **`run.sh`** — runs both in sequence: backup first, then verify
+- **`run.sh`** — runs both in sequence: prechecks, backup, then verify
+- **`romaji.py`** — renames CJK filenames to romaji (fixes NFD/NFC churn on non-HFS+ destinations)
 
 ## Requirements
 
-**GNU rsync 3.x** is required. macOS ships `openrsync` (Apple's BSD reimplementation) which is missing flags this script depends on. Install the real thing:
+- **GNU rsync 3.x** — macOS ships `openrsync` which is missing required flags. `backup.sh` auto-detects Homebrew rsync at `/usr/local/bin` or `/opt/homebrew/bin`. Install:
+  ```bash
+  brew install rsync
+  ```
 
-```bash
-brew install rsync
-```
+- **Python 3.9+** — for `paranoid.py`. `run.sh` checks this before running.
 
-Confirm you have the right one:
-```bash
-rsync --version  # should say "rsync  version 3.x" not "openrsync"
-```
-
-If `brew install rsync` doesn't take precedence, add `/opt/homebrew/bin` (Apple Silicon) or `/usr/local/bin` (Intel) to the front of your `$PATH` in `~/.zshrc`.
+- **SSH key auth** — required if using `REMOTE_HOST`. Set up once:
+  ```bash
+  ssh-keygen -t ed25519
+  ssh-copy-id user@host
+  ```
 
 ## Setup
 
@@ -28,21 +29,28 @@ If `brew install rsync` doesn't take precedence, add `/opt/homebrew/bin` (Apple 
    cp backup.conf.example backup.conf
    ```
    Then edit `backup.conf`:
-   - Set `DEST_ROOT` to your backup drive mount point (e.g. `/Volumes/SanDisk`)
+   - Set `DEST_ROOT` to your backup drive path (local or remote)
+   - Set `REMOTE_HOST="user@host"` to back up over SSH instead of a local mount — leave empty for local/SMB
    - Add or remove entries from `SOURCES`
 
    `backup.conf` is gitignored — your personal paths stay off GitHub.
 
 2. Make scripts executable:
    ```bash
-   chmod +x backup.sh run.sh paranoid.py
+   chmod +x backup.sh run.sh
    ```
 
 ## Usage
 
 ```bash
-# Full pipeline (backup + verify)
+# Full pipeline (prechecks + backup + verify)
 bash run.sh
+
+# Quick verify — size+mtime only, no rehash (fast)
+bash run.sh --quick
+
+# Parallel hashing — faster over SSH or fast network
+bash run.sh --parallel
 
 # Override destination at runtime
 bash run.sh /Volumes/MyOtherDrive
@@ -51,28 +59,27 @@ bash run.sh /Volumes/MyOtherDrive
 bash backup.sh
 
 # Verify only (run from parent of backup dir)
-cd /Volumes/SanDisk/Backup
-python3 /path/to/paranoid.py <hostname>
+cd /Volumes/Backup/Backup
+python3 /path/to/paranoid.py magatsukami
 
-# Deduplicate (run from parent of backup dir, after paranoid.py has run once)
-cd /Volumes/SanDisk/Backup
-python3 /path/to/dedup.py <hostname>           # dry run — shows what would change
-python3 /path/to/dedup.py --apply <hostname>   # replace duplicates with hard links
+# Rename CJK filenames to romaji (fixes NFD/NFC churn on SMB/exFAT)
+python3 romaji.py ~/Downloads          # preview
+python3 romaji.py ~/Downloads --apply  # rename
 ```
 
 ## How it works
 
 `backup.sh` rsyncs each source in `SOURCES` to:
 ```
-$DEST_ROOT/Backup/<hostname>/
+$DEST_ROOT/Backup/<BACKUP_NAME>/
 ```
 
-Deleted files are preserved (not lost) in:
+Deleted or overwritten files are preserved in:
 ```
 $DEST_ROOT/Deleted/<date>/
 ```
 
-After backup, `run.sh` calls `paranoid.py --serial --no` on the backup destination. On first run it creates a `__paranoid__.json` hash file. On subsequent runs it compares against that baseline and reports:
+`run.sh` runs prechecks before starting — verifies host reachability, destination accessibility, free space, and Python version — then calls `paranoid.py --no` on the backup destination. On first run it creates a `__paranoid__.json` hash file. On subsequent runs it compares against that baseline and reports:
 
 | Symbol | Meaning |
 |---|---|
@@ -83,16 +90,28 @@ After backup, `run.sh` calls `paranoid.py --serial --no` on the backup destinati
 | 🪱 CORRUPT | Hash changed but mtime didn't — possible corruption |
 | 👯 DUPES | Identical files (verbose mode only) |
 
+## SSH remote backup
+
+Set `REMOTE_HOST` in `backup.conf` to rsync over SSH instead of a local mount:
+
+```bash
+REMOTE_HOST="mrizzo@nas.local"
+DEST_ROOT="/Volumes/Backup"   # path on the remote machine
+```
+
+`run.sh` will SSH-check reachability and free space before starting. `paranoid.py` still runs locally against the mounted share — or SSH in and run it directly on the remote.
+
 ## Schedule
 
-Recommended setup — quick check daily, full hash weekly:
 ```bash
 crontab -e
 # Daily quick check (size + mtime, fast — misses silent corruption):
-0 9 * * *   /bin/bash /path/to/run.sh --quick >> $HOME/.backup.log 2>&1
-# Weekly full hash (Sunday 9am — catches silent corruption):
-0 9 * * 0   /bin/bash /path/to/run.sh         >> $HOME/.backup.log 2>&1
+0 2 * * *   /bin/bash /path/to/run.sh --quick >> $HOME/.backup.log 2>&1
+# Weekly full hash (Sunday 3am — catches silent corruption):
+0 3 * * 0   /bin/bash /path/to/run.sh         >> $HOME/.backup.log 2>&1
 ```
+
+No PATH setup needed in crontab — `backup.sh` auto-detects Homebrew rsync.
 
 View the log:
 ```bash
