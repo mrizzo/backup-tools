@@ -83,7 +83,7 @@ def _live_hash_file_inner(_file, _trivial):
             )
         )
 
-def live_hash_files(_files, _trivial, _serial):
+def live_hash_files(_files, _trivial, _serial, _workers=3):
     total_file_size = 0
     start_wall_time = time.perf_counter()
 
@@ -92,7 +92,7 @@ def live_hash_files(_files, _trivial, _serial):
 
     # get the hashes and file size of every file
     hashes_live = {}
-    with multiprocessing.Pool(processes=1 if _serial else 3) as pool: # diminishing returns after parallel 3
+    with multiprocessing.Pool(processes=1 if _serial else _workers) as pool:
         try:
             pool_tasks = [(f, _trivial) for f in _files]
 
@@ -325,7 +325,7 @@ def work(_searchpath, _args):
     files_live = list_files(_searchpath, _args)
 
     # live hashes
-    hashes_live = live_hash_files(files_live, _args.trivial, _args.serial) # keys are Path.as_posix()
+    hashes_live = live_hash_files(files_live, _args.trivial, _args.serial, _args.workers) # keys are Path.as_posix()
 
     if hashes_saved is None:
         # hashfile does not exist, create the dict
@@ -466,7 +466,7 @@ def work(_searchpath, _args):
                         f in fileset_corrupt or
                         f in {f_new for (_f_mis, f_new) in fileset_moved} # include moved new files (moved files were removed from fileset_new)
                 ]
-                hashes_live = live_hash_files(files_live, False, _args.serial)
+                hashes_live = live_hash_files(files_live, False, _args.serial, _args.workers)
 
             # remove moved files from saved hashes
             for (f_mis, f_new) in fileset_moved:
@@ -513,6 +513,7 @@ Certain files or directories can be ignored using {IGNOREFILE_NAME} files.
     parser.add_argument('paths', type=Path, help='directories to verify', nargs='+')
     parser.add_argument('-t', '--trivial', action="store_true", help="use trivial file signature (size + modification time)")
     parser.add_argument('-s', '--serial',  action="store_true", help="use serial processing (for I/O-bound external drives)")
+    parser.add_argument('-w', '--workers', type=int, default=3,  help="number of parallel hash workers (default: 3)")
     parser.add_argument('-n', '--no',      action="store_true", help="do not update hash file")
     parser.add_argument('-v', '--verbose', action="store_true", help="increase verbosity")
     parser.add_argument('--version',       action='version', version=f'%(prog)s {__version__}') # (prog) = argparse's placeholder for program name

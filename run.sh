@@ -39,11 +39,13 @@ RESET='\033[0m'
 # ── Parse args ────────────────────────────────────────────────
 QUICK=0
 SERIAL=1
+WORKERS=3
 for arg in "$@"; do
   case "$arg" in
-    --quick)    QUICK=1 ;;
-    --parallel) SERIAL=0 ;;
-    *)          DEST_ROOT="$arg" ;;
+    --quick)      QUICK=1 ;;
+    --parallel)   SERIAL=0 ;;
+    --workers=*)  WORKERS="${arg#--workers=}" ;;
+    *)            DEST_ROOT="$arg" ;;
   esac
 done
 
@@ -135,10 +137,10 @@ echo ""
 SERIAL_FLAG=$( [ $SERIAL -eq 1 ] && echo "--serial" || echo "" )
 if [ $QUICK -eq 1 ]; then
   echo -e "${BOLD}${CYAN}── Quick verify (size + mtime, no rehash)...${RESET}"
-  PARANOID_FLAGS="$SERIAL_FLAG --no --trivial"
+  PARANOID_FLAGS="$SERIAL_FLAG --no --trivial --workers=$WORKERS"
 else
   echo -e "${BOLD}${CYAN}── Full verify (SHA-256 hash of every file)...${RESET}"
-  PARANOID_FLAGS="$SERIAL_FLAG --no"
+  PARANOID_FLAGS="$SERIAL_FLAG --no --workers=$WORKERS"
 fi
 echo "────────────────────────────────────────"
 
@@ -157,7 +159,7 @@ if [ -n "$REMOTE_HOST" ] && [ ! -d "$BACKUP_PARENT" ]; then
   REMOTE_PARANOID="/tmp/paranoid_run.py"
   scp -q "$SCRIPT_DIR/paranoid.py" "$REMOTE_HOST:$REMOTE_PARANOID" 2>/dev/null \
     || { echo -e "${RED}✗ Could not copy paranoid.py to $REMOTE_HOST${RESET}"; exit 1; }
-  ssh "$REMOTE_HOST" "cd '$BACKUP_PARENT' && python3 '$REMOTE_PARANOID' $PARANOID_FLAGS '$BACKUP_NAME'"
+  ssh -t "$REMOTE_HOST" "cd '$BACKUP_PARENT' && python3 '$REMOTE_PARANOID' $PARANOID_FLAGS '$BACKUP_NAME'"
   PARANOID_EXIT=$?
   ssh "$REMOTE_HOST" "rm -f '$REMOTE_PARANOID'" 2>/dev/null
 else

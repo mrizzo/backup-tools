@@ -34,12 +34,25 @@ Lean backup + integrity verification for macOS.
    - Add or remove entries from `SOURCES`
 
    `backup.conf.local` is gitignored — your personal paths stay off GitHub.
-   `backup.conf` is tracked in git and holds shared settings (`EXCLUDES`) that apply to all machines.
 
-2. Make scripts executable:
+2. Shared exclusion rules live in `backup.conf` (tracked in git). Edit it to add or remove patterns that apply to all machines:
+   ```bash
+   # example: exclude a project's build output everywhere
+   'my-project/build/'
+   ```
+
+3. Make scripts executable:
    ```bash
    chmod +x backup.sh run.sh
    ```
+
+## Config files
+
+| File | Tracked | Purpose |
+|---|---|---|
+| `backup.conf` | ✅ git | Shared `EXCLUDES` — same on all machines |
+| `backup.conf.local` | ❌ gitignored | Per-machine: `DEST_ROOT`, `REMOTE_HOST`, `BACKUP_NAME`, `SOURCES` |
+| `backup.conf.local.example` | ✅ git | Template to copy for a new machine |
 
 ## Usage
 
@@ -50,8 +63,8 @@ bash run.sh
 # Quick verify — size+mtime only, no rehash (fast)
 bash run.sh --quick
 
-# Parallel hashing — faster over SSH or fast network
-bash run.sh --parallel
+# More parallel hash workers (faster on fast storage or NAS)
+bash run.sh --workers=6
 
 # Override destination at runtime
 bash run.sh /Volumes/MyOtherDrive
@@ -62,6 +75,9 @@ bash backup.sh
 # Verify only (run from parent of backup dir)
 cd /Volumes/Backup/Backup
 python3 /path/to/paranoid.py magatsukami
+
+# Verify with more workers
+python3 /path/to/paranoid.py --workers 6 magatsukami
 
 # Rename CJK filenames to romaji (fixes NFD/NFC churn on SMB/exFAT)
 python3 romaji.py ~/Downloads          # preview
@@ -91,16 +107,26 @@ $DEST_ROOT/Deleted/<date>/
 | 🪱 CORRUPT | Hash changed but mtime didn't — possible corruption |
 | 👯 DUPES | Identical files (verbose mode only) |
 
+### paranoid.py flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--trivial` / `-t` | off | Size + mtime only, no SHA-256 (fast, misses silent corruption) |
+| `--serial` / `-s` | off | Single worker — use for slow external drives |
+| `--workers N` / `-w N` | 3 | Parallel hash workers — increase for fast local SSDs or NAS |
+| `--no` / `-n` | off | Don't prompt to update the hash file |
+| `--verbose` / `-v` | off | Show per-file details and duplicate listing |
+
 ## SSH remote backup
 
-Set `REMOTE_HOST` in `backup.conf` to rsync over SSH instead of a local mount:
+Set `REMOTE_HOST` in `backup.conf.local` to rsync over SSH instead of a local mount:
 
 ```bash
 REMOTE_HOST="mrizzo@nas.local"
 DEST_ROOT="/Volumes/Backup"   # path on the remote machine
 ```
 
-`run.sh` will SSH-check reachability and free space before starting. `paranoid.py` still runs locally against the mounted share — or SSH in and run it directly on the remote.
+`run.sh` checks reachability, free space, and python3 availability on the remote before starting. If the remote has Python 3.9+, `paranoid.py` is copied over SSH and run there automatically — no permanent install needed. If python3 isn't available on the remote, the integrity check is skipped with a log entry.
 
 ## Schedule
 
