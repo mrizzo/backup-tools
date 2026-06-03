@@ -110,6 +110,44 @@ else
   fail "detects moved file"
 fi
 
+# superhash: written on first run
+setup_dir "t_superhash"
+cd "$SETUP_DIR"
+superkey=$(python3 -c "import json; d=json.load(open('target/__paranoid__.json')); print('\x00superhash\x00' in d)")
+if [ "$superkey" = "True" ]; then
+  pass "superhash written on first run"
+else
+  fail "superhash written on first run"
+fi
+
+# superhash: clean load exits 0
+paranoid --no target > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+  pass "superhash: clean load exits 0"
+else
+  fail "superhash: clean load exits 0"
+fi
+
+# superhash: tampered database detected
+python3 -c "
+import json
+p = 'target/__paranoid__.json'
+d = json.load(open(p))
+# flip one byte in the first file's hash
+for k in d:
+    if isinstance(d[k], dict):
+        d[k]['st_size'] = d[k]['st_size'] + 1
+        break
+with open(p, 'w') as f:
+    json.dump(d, f)
+"
+out=$(paranoid --no target 2>&1)
+if echo "$out" | grep -q "integrity check"; then
+  pass "superhash: tampered database detected"
+else
+  fail "superhash: tampered database detected"
+fi
+
 # detects corrupt file (hash changed, mtime unchanged)
 setup_dir "t_corrupt"
 cd "$SETUP_DIR"
