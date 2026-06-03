@@ -135,6 +135,15 @@ echo "────────────────────────�
 BACKUP_PARENT="$(dirname "$BACKUP_DIR")"
 BACKUP_NAME="$(basename "$BACKUP_DIR")"
 
+if [ -n "$REMOTE_HOST" ] && [ ! -d "$BACKUP_PARENT" ]; then
+  echo -e "${YELLOW}⚠ Skipping integrity check — $BACKUP_PARENT is not mounted locally.${RESET}"
+  echo -e "  To verify, SSH in and run:"
+  echo -e "  ${BOLD}ssh $REMOTE_HOST${RESET}"
+  echo -e "  ${BOLD}cd $BACKUP_PARENT && python3 ~/paranoid.py $BACKUP_NAME${RESET}"
+  echo "$(date): BACKUP OK (verify skipped — remote not mounted)" >> "$HOME/.backup.log"
+  exit 0
+fi
+
 cd "$BACKUP_PARENT" || { echo -e "${RED}✗ Cannot cd to $BACKUP_PARENT${RESET}"; exit 1; }
 
 python3 "$SCRIPT_DIR/paranoid.py" $PARANOID_FLAGS "$BACKUP_NAME"
