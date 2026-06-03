@@ -24,16 +24,17 @@ Lean backup + integrity verification for macOS.
 
 ## Setup
 
-1. Copy the example config and fill it in:
+1. Copy the example local config and fill it in:
    ```bash
-   cp backup.conf.example backup.conf
+   cp backup.conf.local.example backup.conf.local
    ```
-   Then edit `backup.conf`:
+   Then edit `backup.conf.local`:
    - Set `DEST_ROOT` to your backup drive path (local or remote)
    - Set `REMOTE_HOST="user@host"` to back up over SSH instead of a local mount — leave empty for local/SMB
    - Add or remove entries from `SOURCES`
 
-   `backup.conf` is gitignored — your personal paths stay off GitHub.
+   `backup.conf.local` is gitignored — your personal paths stay off GitHub.
+   `backup.conf` is tracked in git and holds shared settings (`EXCLUDES`) that apply to all machines.
 
 2. Make scripts executable:
    ```bash

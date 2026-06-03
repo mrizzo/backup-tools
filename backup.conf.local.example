@@ -1,0 +1,31 @@
+# ── backup.conf.local ─────────────────────────────────────────
+# Machine-specific config — gitignored, not shared.
+# Copy this file to backup.conf.local and fill it in.
+# ──────────────────────────────────────────────────────────────
+
+# Destination drive mount point (local) or path on the remote machine (SSH)
+# Example: DEST_ROOT="/Volumes/SanDisk"
+DEST_ROOT=""
+
+# SSH remote host (optional)
+# If set, rsync over SSH to this host instead of a local mount.
+# DEST_ROOT is then the path on the remote machine.
+# Example: REMOTE_HOST="mrizzo@kuroshinigami.local"
+REMOTE_HOST=""
+
+# Name used for the backup folder: $DEST_ROOT/Backup/<BACKUP_NAME>
+# Leave blank to use the machine's hostname automatically.
+# Example: BACKUP_NAME="old-macbook"
+BACKUP_NAME=""
+
+# Sources to back up
+SOURCES=(
+  "$HOME/Documents"
+  "$HOME/Desktop"
+  "$HOME/Pictures"
+  "$HOME/Downloads"
+  "$HOME/.ssh"
+  "$HOME/.zshrc"
+  "$HOME/.gitconfig"
+  "$HOME/.zsh_history"
+)
