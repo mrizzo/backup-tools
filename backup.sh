@@ -134,7 +134,7 @@ for SOURCE in "${SOURCES[@]}"; do
   if [ -e "$SOURCE" ]; then
     echo -e "\n${BOLD}Backing up:${RESET} $SOURCE"
     DIR_START=$(date +%s)
-    "$RSYNC_BIN" -ah $PROGRESS_FLAG --delete \
+    "$RSYNC_BIN" -ah $PROGRESS_FLAG --delete --delete-excluded \
       --partial \
       --backup \
       "$BACKUP_DIR_ARG" \
