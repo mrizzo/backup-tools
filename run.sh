@@ -151,7 +151,8 @@ BACKUP_NAME="$(basename "$BACKUP_DIR")"
 # ── Sync .paranoid_ignore from config ────────────────────────
 # Always overwrite so config is the single source of truth.
 if [ -n "$REMOTE_HOST" ] && [ ! -d "$BACKUP_PARENT" ]; then
-  printf '%s\n' "${PARANOID_EXCLUDES[@]}" | ssh "$REMOTE_HOST" "cat > '$BACKUP_DIR/.paranoid_ignore'" 2>/dev/null
+  printf '%s\n' "${PARANOID_EXCLUDES[@]}" | ssh "$REMOTE_HOST" "cat > '$BACKUP_DIR/.paranoid_ignore'" \
+    || { echo -e "${RED}✗ Could not write .paranoid_ignore to $REMOTE_HOST${RESET}"; exit 1; }
 else
   printf '%s\n' "${PARANOID_EXCLUDES[@]}" > "$BACKUP_DIR/.paranoid_ignore"
 fi
