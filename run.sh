@@ -148,6 +148,15 @@ echo "────────────────────────�
 BACKUP_PARENT="$(dirname "$BACKUP_DIR")"
 BACKUP_NAME="$(basename "$BACKUP_DIR")"
 
+# ── Sync .paranoid_ignore from config ────────────────────────
+# Always overwrite so config is the single source of truth.
+if [ -n "$REMOTE_HOST" ] && [ ! -d "$BACKUP_PARENT" ]; then
+  printf '%s\n' "${PARANOID_EXCLUDES[@]}" | ssh "$REMOTE_HOST" "cat > '$BACKUP_DIR/.paranoid_ignore'" \
+    || { echo -e "${RED}✗ Could not write .paranoid_ignore to $REMOTE_HOST${RESET}"; exit 1; }
+else
+  printf '%s\n' "${PARANOID_EXCLUDES[@]}" > "$BACKUP_DIR/.paranoid_ignore"
+fi
+
 if [ -n "$REMOTE_HOST" ] && [ ! -d "$BACKUP_PARENT" ]; then
   if [ "${REMOTE_HAS_PYTHON:-0}" -eq 0 ]; then
     echo -e "${YELLOW}⚠ Skipping integrity check — python3.9+ not available on $REMOTE_HOST${RESET}"
