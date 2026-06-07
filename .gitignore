@@ -10,3 +10,4 @@ backup.conf.local
 # Python
 *.pyc
 __pycache__/
+.venv/
