@@ -7,6 +7,18 @@ Lean backup + integrity verification for macOS.
 - **`run.sh`** — runs both in sequence: prechecks, backup, then verify
 - **`romaji.py`** — renames CJK filenames to romaji (fixes NFD/NFC churn on non-HFS+ destinations)
 
+## Why not just use the NAS's built-in sync?
+
+The sync software bundled with a NAS (or any rsync/rclone job on its own) decides what to copy by comparing **metadata** — file size and modification time. That's fast, but it's blind to whole classes of problems that `paranoid.py` is built to catch:
+
+- **🪱 Silent corruption (bitrot).** If a file's *content* changes but its size and mtime do not, vanilla sync software sees nothing to do — and will happily propagate the corrupted bytes (or leave a corrupt copy in place) without a word. `paranoid.py` re-hashes the actual content (SHA-256), so when the hash changes while the mtime hasn't, it flags the file `🪱 CORRUPT`. NAS software *cannot* catch this, because it never reads the bytes.
+
+- **Baseline drift.** NAS sync only knows "what's on disk right now" and copies that. `paranoid.py` keeps a baseline (`__paranoid__.json`) recording what every file *was* — size, mtime, and content hash — so it can tell you exactly what drifted since the last verified-good state, instead of just mirroring the current (possibly already-degraded) snapshot.
+
+- **Intentional-change visibility.** Applications that churn their own internals — Photos rewriting its library database, for example — show up explicitly as `✏️ UPDATED`. You see that it happened and when, rather than silently syncing a library mid-write and ending up with a potentially inconsistent snapshot on the backup.
+
+In short: a NAS sync answers "are the two sides the same?" by trusting metadata. `paranoid.py` answers "is the data still what it was, byte for byte?" — which is the question that actually matters for an archive.
+
 ## Requirements
 
 - **GNU rsync 3.x** — macOS ships `openrsync` which is missing required flags. `backup.sh` auto-detects Homebrew rsync at `/usr/local/bin` or `/opt/homebrew/bin`. Install:
@@ -137,6 +149,8 @@ crontab -e
 # Weekly full hash (Sunday 3am — catches silent corruption):
 0 3 * * 0   /bin/bash /path/to/run.sh         >> $HOME/.backup.log 2>&1
 ```
+
+**Why daily quick + weekly full?** The full hash reads every byte off the backup drive, so it's too expensive to run nightly on a large archive. But bitrot is slow and rare — a detection latency of up to a week is negligible next to how long silent corruption typically sits undisturbed. The cheap daily `--quick` pass still catches everything that changes size or mtime (new files, deletes, moves, ordinary edits); the weekly deep pass exists solely to catch the same-size/same-mtime content change that metadata can't see. As long as you keep the source (or versioned `Deleted/` copies) around, the week-long window is harmless: you detect the corruption, then restore from the good side.
 
 No PATH setup needed in crontab — `backup.sh` auto-detects Homebrew rsync.
 
