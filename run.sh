@@ -9,12 +9,11 @@
 #    bash run.sh /Volumes/MyDrive         # override DEST_ROOT
 #    bash run.sh --quick /Volumes/MyDrive
 #
-#  SCHEDULE:
-#    crontab -e
-#    # Daily quick check (size + mtime, no rehash):
-#    0 9 * * *   /bin/bash /path/to/run.sh --quick >> $HOME/.backup.log 2>&1
-#    # Weekly full hash (Sunday 9am — catches silent corruption):
-#    0 9 * * 0   /bin/bash /path/to/run.sh         >> $HOME/.backup.log 2>&1
+#  SCHEDULE (macOS):
+#    Use the launchd agents in ./launchd — cron can't reach external volumes
+#    without granting Full Disk Access, and launchd also reruns missed jobs on
+#    wake. See launchd/README.md:
+#      bash launchd/install.sh
 # ─────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
