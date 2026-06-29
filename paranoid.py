@@ -538,12 +538,22 @@ Certain files or directories can be ignored using {IGNOREFILE_NAME} files.
     args = parser.parse_args()
 
     for p in args.paths:
-        rp = p.resolve()
+        try:
+            rp = p.resolve()
+            cwd = Path.cwd().resolve()
+        except OSError as e:
+            sys.exit(
+                f"error: cannot access '{p}': {e.strerror or e}.\n"
+                "On macOS this usually means the running process lacks Full Disk "
+                "Access to the volume (common for cron/launchd jobs reaching an "
+                "external drive). Grant Full Disk Access to the scheduler/interpreter "
+                "in System Settings > Privacy & Security > Full Disk Access."
+            )
 
         if not rp.is_dir():
             parser.error(f"not a directory: '{p}'")
 
-        if rp.parent != Path.cwd().resolve():
+        if rp.parent != cwd:
             parser.error(f"run this script from the parent directory of the target: '{p}'")
 
     ret_val = 0

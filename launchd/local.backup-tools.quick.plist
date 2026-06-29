@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Daily quick backup + trivial verify (size + mtime). Installed by install.sh,
+     which substitutes @RUN_SH@ / @LOG@ / @PATH@. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.backup-tools.quick</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>@RUN_SH@</string>
+    <string>--quick</string>
+  </array>
+
+  <!-- Daily at 02:00. launchd also runs a missed occurrence once on wake,
+       which cron does not. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>2</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>@PATH@</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>@LOG@</string>
+  <key>StandardErrorPath</key>
+  <string>@LOG@</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
