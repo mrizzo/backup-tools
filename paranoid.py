@@ -470,18 +470,18 @@ def work(_searchpath, _args):
         print()
 
     if (fileset_new or fileset_deleted or fileset_updated or fileset_corrupt or fileset_moved):
-        yn = 'n' if _args.no else None
+        yn = 'n' if _args.no else ('y' if _args.yes else None)
         while yn not in ['y', 'n']:
             yn = input('Update? (y/n): ')
 
         if yn == 'y':
             if _args.trivial:
-                # hashes_live only contains trivial hashes, we need the deep hash for all new, updated, corrupt, moved files
+                # hashes_live only contains trivial hashes, we need the deep hash for all new, updated, moved files.
+                # Corrupt files are intentionally excluded: re-baselining them would mask silent corruption.
                 files_live = [
                     f for f in files_live if
                         f in fileset_new or
                         f in fileset_updated or
-                        f in fileset_corrupt or
                         f in {f_new for (_f_mis, f_new) in fileset_moved} # include moved new files (moved files were removed from fileset_new)
                 ]
                 hashes_live = live_hash_files(files_live, False, _args.serial, _args.workers)
@@ -494,13 +494,15 @@ def work(_searchpath, _args):
             for k in fileset_deleted:
                 hashes_saved.pop(k)
 
-            # merge live hashes into saved hashes
-            hashes_saved |= hashes_live
+            # merge live hashes into saved hashes, but never accept corrupt files —
+            # keeping their known-good signature leaves the corruption flagged next run
+            hashes_saved |= {f: h for f, h in hashes_live.items() if f not in fileset_corrupt}
 
             # save hash file
             save_hashdict(_searchpath, hashes_saved)
 
-        return 1 # changes
+        # Exit codes: 2 = corruption (real integrity problem), 1 = benign changes, 0 = clean
+        return 2 if fileset_corrupt else 1
     else:
         print("✅ No tracked file changes")
         return 0 # no changes
@@ -532,10 +534,14 @@ Certain files or directories can be ignored using {IGNOREFILE_NAME} files.
     parser.add_argument('-t', '--trivial', action="store_true", help="use trivial file signature (size + modification time)")
     parser.add_argument('-s', '--serial',  action="store_true", help="use serial processing (for I/O-bound external drives)")
     parser.add_argument('-w', '--workers', type=int, default=3,  help="number of parallel hash workers (default: 3)")
-    parser.add_argument('-n', '--no',      action="store_true", help="do not update hash file")
+    parser.add_argument('-n', '--no',      action="store_true", help="non-interactively decline updating the hash file")
+    parser.add_argument('-y', '--yes',     action="store_true", help="non-interactively accept changes into the hash file (corruption is never auto-accepted)")
     parser.add_argument('-v', '--verbose', action="store_true", help="increase verbosity")
     parser.add_argument('--version',       action='version', version=f'%(prog)s {__version__}') # (prog) = argparse's placeholder for program name
     args = parser.parse_args()
+
+    if args.no and args.yes:
+        parser.error("--no and --yes are mutually exclusive")
 
     for p in args.paths:
         try:

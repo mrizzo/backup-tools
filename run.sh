@@ -136,11 +136,13 @@ echo ""
 SERIAL_FLAG=$( [ $SERIAL -eq 1 ] && echo "--serial" || echo "" )
 if [ $QUICK -eq 1 ]; then
   echo -e "${BOLD}${CYAN}── Quick verify (size + mtime, no rehash)...${RESET}"
-  PARANOID_FLAGS="$SERIAL_FLAG --no --trivial --workers=$WORKERS"
+  PARANOID_FLAGS="$SERIAL_FLAG --yes --trivial --workers=$WORKERS"
 else
   echo -e "${BOLD}${CYAN}── Full verify (SHA-256 hash of every file)...${RESET}"
-  PARANOID_FLAGS="$SERIAL_FLAG --no --workers=$WORKERS"
+  PARANOID_FLAGS="$SERIAL_FLAG --yes --workers=$WORKERS"
 fi
+# --yes: after a successful backup, accept the backup's own changes into the
+# baseline so a clean run exits 0. Corruption is never auto-accepted (exit 2).
 echo "────────────────────────────────────────"
 
 # paranoid.py must be run from the parent of the target directory
@@ -178,10 +180,24 @@ fi
 
 MODE_LABEL=$( [ $QUICK -eq 1 ] && echo "QUICK-VERIFY" || echo "FULL-VERIFY" )
 
-if [ $PARANOID_EXIT -eq 0 ]; then
-  echo "$(date): $MODE_LABEL OK" >> "$HOME/.backup.log"
-else
-  echo "$(date): $MODE_LABEL — changes detected (exit $PARANOID_EXIT)" >> "$HOME/.backup.log"
-fi
-
-exit $PARANOID_EXIT
+# paranoid exit codes: 0 = no changes, 1 = benign changes (accepted into the
+# baseline by --yes), 2 = corruption. A successful backup is "clean" for 0 or 1;
+# only corruption is a failure.
+case $PARANOID_EXIT in
+  0)
+    echo "$(date): $MODE_LABEL OK — no changes" >> "$HOME/.backup.log"
+    exit 0
+    ;;
+  1)
+    echo "$(date): $MODE_LABEL OK — backup changes accepted, baseline updated" >> "$HOME/.backup.log"
+    exit 0
+    ;;
+  2)
+    echo "$(date): $MODE_LABEL ⚠ POSSIBLE CORRUPTION — see output above (exit 2)" >> "$HOME/.backup.log"
+    exit 2
+    ;;
+  *)
+    echo "$(date): $MODE_LABEL — paranoid exited $PARANOID_EXIT" >> "$HOME/.backup.log"
+    exit "$PARANOID_EXIT"
+    ;;
+esac
