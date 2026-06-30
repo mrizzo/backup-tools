@@ -134,15 +134,27 @@ fi
 # ── Step 2: Verify with paranoid.py ──────────────────────────
 echo ""
 SERIAL_FLAG=$( [ $SERIAL -eq 1 ] && echo "--serial" || echo "" )
+
+# Accepting changes into the baseline is a manual, reviewed step:
+#  - interactive (a terminal on stdin): no accept flag, so paranoid prompts
+#    "Update? (y/n)" and you review the diff before anything is committed
+#  - unattended (cron/launchd, no terminal): --no, so it reports changes but
+#    never modifies the baseline without review
+# The exit code reflects integrity either way: 0/1 = clean (no corruption),
+# 2 = corruption — so a scheduled run still exits 0 unless something's wrong.
+if [ -t 0 ]; then
+  ACCEPT_FLAG=""
+else
+  ACCEPT_FLAG="--no"
+fi
+
 if [ $QUICK -eq 1 ]; then
   echo -e "${BOLD}${CYAN}── Quick verify (size + mtime, no rehash)...${RESET}"
-  PARANOID_FLAGS="$SERIAL_FLAG --yes --trivial --workers=$WORKERS"
+  PARANOID_FLAGS="$SERIAL_FLAG $ACCEPT_FLAG --trivial --workers=$WORKERS"
 else
   echo -e "${BOLD}${CYAN}── Full verify (SHA-256 hash of every file)...${RESET}"
-  PARANOID_FLAGS="$SERIAL_FLAG --yes --workers=$WORKERS"
+  PARANOID_FLAGS="$SERIAL_FLAG $ACCEPT_FLAG --workers=$WORKERS"
 fi
-# --yes: after a successful backup, accept the backup's own changes into the
-# baseline so a clean run exits 0. Corruption is never auto-accepted (exit 2).
 echo "────────────────────────────────────────"
 
 # paranoid.py must be run from the parent of the target directory
@@ -189,7 +201,7 @@ case $PARANOID_EXIT in
     exit 0
     ;;
   1)
-    echo "$(date): $MODE_LABEL OK — backup changes accepted, baseline updated" >> "$HOME/.backup.log"
+    echo "$(date): $MODE_LABEL OK — changes detected, no corruption (review/accept manually)" >> "$HOME/.backup.log"
     exit 0
     ;;
   2)
