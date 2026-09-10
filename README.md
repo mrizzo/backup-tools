@@ -6,6 +6,7 @@ Lean backup + integrity verification for macOS.
 - **`paranoid.py`** — SHA-256 hashes every file and detects changes, corruption, moves, and duplicates
 - **`run.sh`** — runs both in sequence: prechecks, backup, then verify
 - **`romaji.py`** — renames CJK filenames to romaji (fixes NFD/NFC churn on non-HFS+ destinations)
+- **`mvchck.sh`** — a sourceable `mvchck` shell function: a verified move of a single file — atomic hardlink on the same filesystem, copy-then-`cmp`-verify (original kept until the copy checks out) across filesystems
 
 ## Why not just use the NAS's built-in sync?
 
@@ -95,6 +96,24 @@ python3 /path/to/paranoid.py --workers 6 magatsukami
 python3 romaji.py ~/Downloads          # preview
 python3 romaji.py ~/Downloads --apply  # rename
 ```
+
+### mvchck — verified move
+
+`mvchck` is a shell function, so **source** it (don't execute it):
+
+```bash
+# in ~/.zshrc (or ~/.bashrc)
+source ~/code/backup-tools/mvchck.sh
+
+# then
+mvchck report.pdf /Volumes/Archive/          # into a directory
+mvchck a.txt b.txt                            # to a path
+```
+
+Same-filesystem moves are an atomic hardlink+unlink (instant, same inode);
+across filesystems it copies, verifies with `cmp`, and removes the original
+only after the copy matches. It refuses to overwrite an existing destination
+and always leaves the original in place on any failure.
 
 ## How it works
 
